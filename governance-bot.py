@@ -189,8 +189,35 @@ async def button_callback(update, context):
     elif action == 'remind_in':
         remind_in_hours = float(data[2])
         next_reminder_time = datetime.now(timezone.utc) + timedelta(hours=remind_in_hours)
+    
+        # Save reminder time in preferences
         preferences["reminders"].setdefault(str(chat_id), {})[proposal_id] = next_reminder_time.isoformat()
         save_user_preferences(preferences)
+
+        # Schedule reminder
+        logging.info(f"Scheduling a reminder for chat {chat_id} in {remind_in_hours} hours (at {next_reminder_time})")
+
+        buttons = create_inline_buttons(short_id)
+        message_text = (
+            f"Reminder: Time to vote on '<b>{proposal_id}</b>'!\n\n"
+            f"Proposal ID: <code>{proposal_id}</code>\n"
+        )
+
+        # Schedule the job in the job queue
+        job = context.job_queue.run_once(
+            send_reminder_message,
+            when=next_reminder_time,
+            data=(chat_id, proposal_id, message_text, buttons)
+        )
+
+         # Track job in SCHEDULED_JOBS
+        if str(chat_id) not in SCHEDULED_JOBS:
+            SCHEDULED_JOBS[str(chat_id)] = {}
+        if proposal_id not in SCHEDULED_JOBS[str(chat_id)]:
+            SCHEDULED_JOBS[str(chat_id)][proposal_id] = []
+
+        SCHEDULED_JOBS[str(chat_id)][proposal_id].append(job)
+
         await context.bot.send_message(chat_id=chat_id, text=f"<b>Reminder set</b> for {remind_in_hours} hours from now.", parse_mode='HTML')
     else:
         logging.warning(f"Unknown action '{action}' in button callback.")
