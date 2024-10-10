@@ -66,7 +66,7 @@ base_url += "proposals/"
 
 # Determine the chain prefix based on the environment
 if environment == 'dev':
-    chain_prefix = 'sep'
+    chain_prefix = 'eth'
 else:
     chain_prefix = 'eth'
 
